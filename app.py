@@ -14,19 +14,19 @@ from pydantic import BaseModel
 # 1. FASTAPI SETUP & ROUTES
 #######################################
 
-# Create FastAPI app
+# create FastAPI app
 app = FastAPI(title="KIT Fashion Assistant API")
 
-# Add CORS middleware
+# add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, specify your domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load environment variables & set up OpenAI
+# load env variables & set up OpenAI
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -62,12 +62,12 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
     Create context-aware follow-up suggestions based on the conversation state.
     """
     try:
-        # Detect if we're in outfit building mode and at specific stages
+        # detect if we're in outfit building mode and at specific stages
         if "what's the occasion for this outfit" in bot_reply.lower():
             return ["Wedding", "Job interview", "Casual weekend"]
             
         if any(q in bot_reply.lower() for q in ["what's the vibe", "colour tones", "silhouettes", "weather", "budget"]):
-            # Generate contextual answers to the specific question
+            # generate contextual answers to the specific question
             suggestion_response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
@@ -87,19 +87,19 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             suggestions = [s.strip() for s in suggestions_text.split(",") if s.strip()]
             return suggestions[:3]
             
-        # After outfit generation (detect outfit formatting)
+        # after outfit generation (detect outfit formatting)
         if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
             return ["Shopping links please", "I'd like to swap some items", "This looks perfect"]
             
-        # After shopping links
+        # after shopping links
         if "here are available links" in bot_reply.lower():
             return ["Save this outfit for me", "I'd like to swap some items", "Add final touches"]
             
-        # When asked what to change
+        # when asked what to change
         if "what would you like to change" in bot_reply.lower():
             return ["Different shoes", "Something more affordable", "Different color palette"]
 
-        # Default case - generate standard suggestions
+        # default case - generate standard suggestions
         suggestion_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -130,7 +130,7 @@ def generate_contextual_followups(chat_history: List[Dict[str, Any]]) -> List[st
     if not chat_history:
         return ["What's trending now?", "Style advice please", "Tell me about tabis"]
     try:
-        # Use last ~6 messages for context
+        # use last ~6 messages for context
         recent_messages = chat_history[-6:] if len(chat_history) > 6 else chat_history
         messages = []
         for msg in recent_messages:
@@ -179,7 +179,7 @@ async def chat_api(request: ChatRequest):
     image_data = request.image
     chat_history = request.history or []
 
-    # Prepare system prompt
+    # prepare system prompt
     system_message = (
             "You are KIT: a helpful AI assistant for PPPTAILORINGCOURIER, "
             "focused on answering questions about archive and avant-garde fashion, "
@@ -233,12 +233,12 @@ async def chat_api(request: ChatRequest):
         if "role" in msg and "content" in msg:
             messages.append({"role": msg["role"], "content": msg["content"]})
 
-    # If there's an image, parse it
+    # if there's an image, parse it
     if image_data and image_data.startswith("data:image"):
         try:
             image_bytes = base64.b64decode(image_data.split(",")[1])
             pil_img = Image.open(BytesIO(image_bytes))
-            # Add the image to the conversation
+            # add the image to the conversation
             base64_img = encode_image(pil_img)
             messages.append({
                 "role": "user",
@@ -251,7 +251,7 @@ async def chat_api(request: ChatRequest):
             print("Error decoding image:", e)
             messages.append({"role": "user", "content": message or "Image upload failed."})
     else:
-        # Otherwise just add the text message
+        # otherwise just add the text message
         messages.append({"role": "user", "content": message})
 
     try:
@@ -261,7 +261,7 @@ async def chat_api(request: ChatRequest):
             max_tokens=250,
         )
         bot_reply = response.choices[0].message.content
-        # Generate follow-up suggestions
+        # generate follow-up suggestions
         suggestions = generate_suggestions(message, bot_reply)
 
         return {"text": bot_reply, "suggestedResponses": suggestions}
@@ -295,14 +295,14 @@ async def get_suggested_responses(data: dict):
     history = data.get("history", [])
 
     try:
-        # If both a user message & bot reply exist, do direct suggestions
+        # if both a user message & bot reply exist, do direct suggestions
         if message and bot_reply:
             suggestions = generate_suggestions(message, bot_reply)
             return {"suggestedResponses": suggestions}
 
-        # If we have history, do contextual follow-ups
+        # if we have history, do contextual follow-ups
         elif history:
-            # Convert any 2-length lists to {role:..., content:...} as needed
+            # convert any 2-length lists to {role:..., content:...} as needed
             formatted_history = []
             for item in history:
                 if isinstance(item, dict) and "role" in item:
@@ -314,7 +314,7 @@ async def get_suggested_responses(data: dict):
             suggestions = generate_contextual_followups(formatted_history)
             return {"suggestedResponses": suggestions}
 
-        # Otherwise return the last known responses or some default
+        # otherwise return the last known responses or some default
         global last_response
         return {"suggestedResponses": last_response["suggestedResponses"]}
 
@@ -338,7 +338,7 @@ async def get_suggestions(message: str = ""):
             return {
                 "suggestions": ["What's trending now?", "Style advice please", "Tell me about tabis"]
             }
-        # Generate suggestions ignoring any conversation context
+        # generate suggestions ignoring any conversation context
         suggestions = generate_suggestions(message, "")
         return {"suggestions": suggestions}
     except Exception as e:
@@ -346,6 +346,5 @@ async def get_suggestions(message: str = ""):
         return {"suggestions": ["Try a different question", "Style advice please", "What's trending?"]}
 
 if __name__ == "__main__":
-    # Just run your FastAPI app (uvicorn, etc.)
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
