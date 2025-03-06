@@ -128,7 +128,7 @@ def generate_contextual_followups(chat_history: List[Dict[str, Any]]) -> List[st
     Generate follow-up suggestions based on the entire conversation context.
     """
     if not chat_history:
-        return ["What's trending now?", "Style advice please", "Tell me about tabis"]
+        return ["What's trending now?", "Style advice please", "Recommended brands?"]
     try:
         # use last ~6 messages for context
         recent_messages = chat_history[-6:] if len(chat_history) > 6 else chat_history
@@ -281,7 +281,7 @@ async def get_starter_prompts():
         "prompts": [
             "What should I wear to a gallery opening?",
             "Suggest styling tips for minimalist wardrobe",
-            "Tell me about tabi boots"
+            "Break down a trend: tabis"
         ]
     }
 
@@ -336,7 +336,7 @@ async def get_suggestions(message: str = ""):
     try:
         if not message:
             return {
-                "suggestions": ["What's trending now?", "Style advice please", "Tell me about tabis"]
+                "suggestions": ["What's trending now?", "Style advice please", "Break down a trend: tabis"]
             }
         # generate suggestions ignoring any conversation context
         suggestions = generate_suggestions(message, "")
