@@ -76,7 +76,7 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
                 return ["Wedding", "Job interview", "Casual weekend"]
         
         # For other outfit building questions, provide appropriate answers (not questions)
-        if any(q in bot_reply.lower() for q in ["what's the vibe", "colour", "color", "tone", "silhouette", "weather", "budget"]):
+        if any(q in bot_reply.lower() for q in ["what's the vibe", "colour tones", "silhouettes", "weather", "budget"]):
             # Generate contextual answers to the specific question
             suggestion_response = client.chat.completions.create(
                 model="gpt-4o",
@@ -98,7 +98,7 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             return suggestions[:3]
             
         # after outfit generation (detect outfit formatting)
-        if any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
+        if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
             return ["Shopping links please", "I'd like to swap some items"]
             
         # after shopping links
@@ -109,15 +109,16 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
         if "what would you like to change" in bot_reply.lower():
             return ["Different shoes", "Something more affordable", "Different color palette"]
 
-        # default case - generate standard suggestions
+        # default case - generate context-aware suggestions or empty list if just explaining a concept
         suggestion_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "Generate 3 very brief follow-up questions (3-5 words each) "
-                        "related to fashion and the previous conversation. "
+                        "Analyze this fashion conversation. If the assistant is ONLY explaining a concept with no clear " 
+                        "follow-up needed, return 'NO_SUGGESTIONS'. Otherwise, generate 1-3 very brief follow-up " 
+                        "questions or related points (3-5 words each) relevant to the conversation. "
                         "Format as a simple comma-separated list without numbering or quotes."
                     )
                 },
@@ -127,8 +128,11 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             max_tokens=50
         )
         suggestions_text = suggestion_response.choices[0].message.content
+        if "NO_SUGGESTIONS" in suggestions_text.upper():
+            return []
+            
         suggestions = [s.strip() for s in suggestions_text.split(",") if s.strip()]
-        return suggestions[:3]
+        return suggestions[:3] if suggestions else []
     except Exception as e:
         print(f"Error generating suggestions: {e}")
         return ["Try a different question", "Style me again", "Any new trends?"]
