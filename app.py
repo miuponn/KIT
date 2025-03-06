@@ -132,10 +132,20 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             return []
             
         suggestions = [s.strip() for s in suggestions_text.split(",") if s.strip()]
-        return suggestions[:3] if suggestions else []
+        
+        # Before returning suggestions, add periods to statements
+        final_suggestions = []
+        for suggestion in suggestions:
+            suggestion = suggestion.strip()
+            if suggestion and not suggestion.endswith((".", "!", "?")):
+                suggestion += "."
+            final_suggestions.append(suggestion)
+        
+        return final_suggestions
+        
     except Exception as e:
         print(f"Error generating suggestions: {e}")
-        return ["Try a different question", "Style me again", "Any new trends?"]
+        return ["Try a different question.", "Style me again.", "Any new trends?"]
 
 def generate_contextual_followups(chat_history: List[Dict[str, Any]]) -> List[str]:
     """
