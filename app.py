@@ -99,7 +99,7 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             
         # after outfit generation (detect outfit formatting)
         if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
-            return ["Shopping links please", "I'd like to swap some items", "This looks perfect"]
+            return ["Shopping links please", "I'd like to swap some items"]
             
         # after shopping links
         if "here are available links" in bot_reply.lower():
@@ -166,6 +166,11 @@ def generate_contextual_followups(chat_history: List[Dict[str, Any]]) -> List[st
     except Exception as e:
         print(f"Error generating contextual follow-ups: {e}")
         return ["Tell me more", "Other options?", "Any alternatives?"]
+
+# helper function to ensure 3 suggestions aren't always needed
+def ensure_suggestions(suggestions_list, max_count=3):
+    """Return up to max_count suggestions, without padding if fewer are provided."""
+    return suggestions_list[:max_count] if suggestions_list else []
 
 #######################################
 # 2. FASTAPI ENDPOINTS
