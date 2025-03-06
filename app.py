@@ -62,20 +62,30 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
     Create context-aware follow-up suggestions based on the conversation state.
     """
     try:
-        # detect if we're in outfit building mode and at specific stages
+        # detect if we're in outfit building mode by checking for occasion question
+        # but only suggest occasions if the user hasn't already specified one
         if "what's the occasion for this outfit" in bot_reply.lower():
-            return ["Wedding", "Job interview", "Casual weekend"]
-            
+            # Check if user has already mentioned an occasion
+            occasion_keywords = ["wedding", "interview", "party", "date", "work", "casual", 
+                               "formal", "ceremony", "dinner", "meeting", "brunch"]
+            if any(keyword in user_input.lower() for keyword in occasion_keywords):
+                # If occasion was mentioned, suggest answers to likely follow-up questions
+                return ["Minimalist and clean", "Dark tones with pops of color", "Comfortable but stylish"]
+            else:
+                # No occasion mentioned, suggest occasion answers
+                return ["Wedding", "Job interview", "Casual weekend"]
+        
+        # For other outfit building questions, provide appropriate answers (not questions)
         if any(q in bot_reply.lower() for q in ["what's the vibe", "colour tones", "silhouettes", "weather", "budget"]):
-            # generate contextual answers to the specific question
+            # Generate contextual answers to the specific question
             suggestion_response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
                         "content": (
-                            "Generate 3 brief user answers (not questions) to respond to the assistant's question. "
-                            "These should be plausible answers a user might give to the fashion question just asked. "
+                            "Generate 3 brief user answers (NOT questions) to respond to the assistant's question. "
+                            "These should be direct answers a user might give to the fashion question just asked. "
                             "Format as a simple comma-separated list without numbering or quotes."
                         )
                     },
