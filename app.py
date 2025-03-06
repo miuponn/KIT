@@ -46,7 +46,7 @@ class ChatResponse(BaseModel):
 
 last_response = {
     "text": "Welcome! I'm KIT, your fashion assistant. How can I help you today?",
-    "suggestedResponses": ["What should I wear to a gallery opening?", "Suggest styling tips based on my wardrobe.", "Break down a trend: tabis"]
+    "suggestedResponses": []  # Empty array instead of pre-populated suggestions
 }
 
 def encode_image(image: Image.Image) -> str:
@@ -339,21 +339,21 @@ async def get_last_response():
     return last_response
 
 @app.get("/api/suggestions")
-async def get_suggestions(message: str = ""):
+async def get_suggestions(message: str = "", bot_reply: str = ""):
     """
-    Simple endpoint that returns suggestions for a given message.
+    Simple endpoint that returns suggestions for a given message and bot reply.
     """
     try:
-        if not message:
-            return {
-                "suggestions": ["What's trending now?", "Style advice please", "Break down a trend: tabis"]
-            }
-        # generate suggestions ignoring any conversation context
-        suggestions = generate_suggestions(message, "")
+        # Only generate suggestions if we have both message and bot_reply
+        if not message or not bot_reply:
+            return {"suggestions": []}
+            
+        # Generate suggestions using both user message and bot reply
+        suggestions = generate_suggestions(message, bot_reply)
         return {"suggestions": suggestions}
     except Exception as e:
         print("Error in /api/suggestions:", e)
-        return {"suggestions": ["Try a different question", "Style advice please", "What's trending?"]}
+        return {"suggestions": []}
 
 if __name__ == "__main__":
     import uvicorn
