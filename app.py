@@ -46,7 +46,7 @@ class ChatResponse(BaseModel):
 
 last_response = {
     "text": "Welcome! I'm KIT, your fashion assistant. How can I help you today?",
-    "suggestedResponses": ["What's trending now?", "Style advice please", "Tell me about tabis"]
+    "suggestedResponses": ["What should I wear to a gallery opening?", "Suggest styling tips based on my wardrobe.", "Break down a trend: tabis"]
 }
 
 def encode_image(image: Image.Image) -> str:
@@ -59,10 +59,47 @@ def encode_image(image: Image.Image) -> str:
 
 def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
     """
-    Create 3 short follow-up suggestions (3-5 words each) using 'gpt-4o'.
-    Returns a list of up to 3 suggestions.
+    Create context-aware follow-up suggestions based on the conversation state.
     """
     try:
+        # Detect if we're in outfit building mode and at specific stages
+        if "what's the occasion for this outfit" in bot_reply.lower():
+            return ["Wedding", "Job interview", "Casual weekend"]
+            
+        if any(q in bot_reply.lower() for q in ["what's the vibe", "colour tones", "silhouettes", "weather", "budget"]):
+            # Generate contextual answers to the specific question
+            suggestion_response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Generate 3 brief user answers (not questions) to respond to the assistant's question. "
+                            "These should be plausible answers a user might give to the fashion question just asked. "
+                            "Format as a simple comma-separated list without numbering or quotes."
+                        )
+                    },
+                    {"role": "assistant", "content": bot_reply},
+                ],
+                max_tokens=50
+            )
+            suggestions_text = suggestion_response.choices[0].message.content
+            suggestions = [s.strip() for s in suggestions_text.split(",") if s.strip()]
+            return suggestions[:3]
+            
+        # After outfit generation (detect outfit formatting)
+        if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
+            return ["Shopping links please", "I'd like to swap some items", "This looks perfect"]
+            
+        # After shopping links
+        if "here are available links" in bot_reply.lower():
+            return ["Save this outfit for me", "I'd like to swap some items", "Add final touches"]
+            
+        # When asked what to change
+        if "what would you like to change" in bot_reply.lower():
+            return ["Different shoes", "Something more affordable", "Different color palette"]
+
+        # Default case - generate standard suggestions
         suggestion_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -148,24 +185,37 @@ async def chat_api(request: ChatRequest):
             "focused on answering questions about archive and avant-garde fashion, "
             "as well as personal style. Your responses should be concise, thoughtful, "
             "and reflect the brand's minimalist, futuristic aesthetic. "
-            "Keep responses under 3 sentences when possible. "
+            "Keep responses under 3 sentences when possible, and be concise when asking questions. "
             "You can also process images of clothing and provide feedback.\n\n"
             
             "OUTFIT BUILDING PROTOCOL:\n"
             "When a user asks you to build or suggest an outfit/fit/look:\n"
-            "1. First, ask follow-up questions about the specific context (formal event, casual outing, work, specific weather).\n"
-            "2. Ask about their style preferences (minimalist, avant-garde, etc.).\n"
+            "1. If no occasion is specified, ALWAYS ask 'What's the occasion for this outfit?'\n"
+            "2. If the occasion IS specified, ask 2 of these follow-up questions (one at a time) with a brief affirmation preceding it (ie. Nice. Got it. etc):\n"
+            "   - What's the vibe?\n"
+            "   - What colour tones do you prefer?\n"
+            "   - What silhouettes do you prefer?\n"
+            "   - What's the weather going to be like?\n"
+            "   - What's your budget like?\n"
             "3. Then structure your outfit recommendation as follows:\n\n"
             
-            "## [OUTFIT NAME]\n"
-            "- TOP: [Specific garment with designer] - [Price range] - [Brief description]\n"
-            "- BOTTOM: [Specific garment with designer] - [Price range] - [Brief description]\n"
-            "- FOOTWEAR: [Specific shoe with designer] - [Price range] - [Brief description]\n"
-            "- ACCESSORIES: [List 1-2 key accessories] - [Price range]\n\n"
+            "[OUTFIT NAME]\n"
+            "- TOP: [Brief title of garment] - [Price range] - ([Designer or brand])\n"
+            "- BOTTOM: [Brief title of garment] - [Price range] - ([Designer or brand])\n"
+            "- FOOTWEAR: [Brief title of shoe] - [Price range] - ([Designer or brand])\n"
+            "- ACCESSORIES: [List 1-2 key accessories] \n\n"
             
-            "4. When the user expresses satisfaction with the outfit, ask if they would like to save it to their archive.\n"
-            "5. After their response (regardless of yes/no), offer final touches as follows:\n\n"
+            "4. When the user asks for shopping links, provide them in this format:\n"
+            "Here are available links to source the pieces:\n"
+            "- [Brief item title]: [Brand] ([Online shop])\n"
+            "- [Brief item title]: [Brand] ([Online shop])\n"
+            "- [Brief item title]: [Brand] ([Online shop])\n"
+            "Would you like to save this fit to your style archive?\n\n"
             
+            "5. If the user asks to swap items but doesn't specify what to swap, ask 'What would you like to change?'\n"
+            "6. After 1-2 follow-up questions about swap details, regenerate the outfit list.\n\n"
+            
+            "7. When the user requests final touches, provide them as follows:\n"
             "## FINAL TOUCHES\n"
             "- FRAGRANCE: [Specific fragrance] - [Brief description of scent profile]\n"
             "- ADDITIONAL ACCESSORIES: [1-2 subtle additions] - [Brief styling tip]\n"
@@ -174,6 +224,7 @@ async def chat_api(request: ChatRequest):
             "Suggest specific archive or contemporary designer pieces when appropriate. "
             "For each recommendation, focus on avant-garde, minimalist, or conceptual fashion houses "
             "like Maison Margiela, Rick Owens, Comme des Garçons, Jil Sander, Lemaire, etc."
+            "But otherwise if the budget specified is lower, look for affordable but fashion-community approved staples like Uniqlo, Nike, etc."
         )
 
     # Build the conversation
@@ -230,8 +281,7 @@ async def get_starter_prompts():
         "prompts": [
             "What should I wear to a gallery opening?",
             "Suggest styling tips for minimalist wardrobe",
-            "Tell me about tabi boots",
-            "What are good fabrics for summer?"
+            "Tell me about tabi boots"
         ]
     }
 
