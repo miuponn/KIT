@@ -1,14 +1,6 @@
-<!-- 
+# KIT ai
 
-# KIT Fashion Bot
+KIT is a FastAPI chatbot, an LLM wrapper with OpenAI API key making API calls to PPPTAILORINGCOURIER website for SEG3125 Project2 (chatbot with custom UI). 
 
-This is a Gradio-based chatbot for PPPTAILORINGCOURIER using OpenAI's GPT-4o model.
-
-## Setup Instructions
-
-1. Create a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows use: venv\Scripts\activate
-
--->
+You can view and interact with the full prototype here:\
+[https://ppptailoringcourier.vercel.app/kit]
