@@ -98,7 +98,7 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             return suggestions[:3]
             
         # after outfit generation (detect outfit formatting)
-        if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
+        if any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
             return ["Shopping links please", "I'd like to swap some items"]
             
         # after shopping links
