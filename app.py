@@ -76,7 +76,7 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
                 return ["Wedding", "Job interview", "Casual weekend"]
         
         # For other outfit building questions, provide appropriate answers (not questions)
-        if any(q in bot_reply.lower() for q in ["what's the vibe", "colour tones", "silhouettes", "weather", "budget"]):
+        if any(q in bot_reply.lower() for q in ["what's the vibe", "colour", "color", "tone", "silhouette", "weather", "budget"]):
             # Generate contextual answers to the specific question
             suggestion_response = client.chat.completions.create(
                 model="gpt-4o",
