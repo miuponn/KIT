@@ -195,9 +195,9 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             if not is_fashion_related:
                 # Not fashion related - provide redirection suggestions
                 return [
-                    "Let's talk about fashion instead",
-                    "What's your style like?",
-                    "Need outfit recommendations?"
+                    "What's trending in fashion?",
+                    "I'd like to build another outfit.",
+                    "Can you suggest a style for me?"
                 ]
             
             # Generate context-aware fashion suggestions
