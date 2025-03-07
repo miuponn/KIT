@@ -62,22 +62,54 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
     Create context-aware follow-up suggestions based on the conversation state.
     """
     try:
-        # ---- OUTFIT BUILDING MODE SUGGESTIONS ---
-        if any(phrase in bot_reply.lower() for phrase in ["occasion", "event", "what are you dressing for"]):
+        # ---- OUTFIT BUILDING MODE DETECTION WITH MORE PRECISE PATTERNS ----
+        
+        # Look for the exact occasion question from the protocol
+        is_asking_occasion = any([
+            "what's the occasion for this outfit" in bot_reply.lower(),
+            "what occasion are you dressing for" in bot_reply.lower(),
+            bot_reply.lower().endswith("what's the occasion?"),
+            # More specific patterns that match the exact protocol wording
+        ])
+        
+        if is_asking_occasion:
             return ["Wedding", "Job interview", "Casual weekend"]
             
-        # Check if we're in outfit building mode
+        # More structured pattern matching for outfit building follow-up questions
+        is_outfit_followup = any([
+            # Specific protocol follow-up questions with precise wording
+            "what's the vibe?" in bot_reply.lower(),
+            "what colour tones do you prefer?" in bot_reply.lower(),
+            "what silhouettes do you prefer?" in bot_reply.lower(),
+            "what's the weather going to be like?" in bot_reply.lower(),
+            "what's your budget like?" in bot_reply.lower()
+        ])
+        
+        # Check for structural patterns that definitively indicate outfit creation
+        is_outfit_structure = "## " in bot_reply and any([
+            # Check for the exact format from the protocol
+            "\n- TOP:" in bot_reply,
+            "\n- BOTTOM:" in bot_reply,
+            "\n- FOOTWEAR:" in bot_reply
+        ])
+        
+        # Check for shopping links section with exact protocol wording
+        is_shopping_links = "here are available links to source the pieces:" in bot_reply.lower()
+        
+        # Look for the exact swap question from protocol
+        is_swap_question = "what would you like to change?" in bot_reply.lower()
+        
+        # Final outfit building mode determination with stricter criteria
         is_outfit_building = any([
-            "what's the occasion" in bot_reply.lower(),
-            "what occasion" in bot_reply.lower(),
-            any(q in bot_reply.lower() for q in ["what's the vibe", "vibe of the", "colour", "color", "tone", 
-                                               "silhouette", "weather", "budget"]),
-            any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]),
-            "here are available links" in bot_reply.lower(),
-            "what would you like to change" in bot_reply.lower()
+            is_asking_occasion,
+            is_outfit_followup,
+            is_outfit_structure,
+            is_shopping_links,
+            is_swap_question
         ])
         
         if is_outfit_building:
+            # Your existing outfit building mode logic remains the same
             if any(q in bot_reply.lower() for q in ["vibe", "mood", "feel"]):
                 return ["Minimalist and clean", "Edgy and avant-garde", "Relaxed but polished"]
                 
@@ -335,7 +367,7 @@ async def chat_api(request: ChatRequest):
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
-            max_tokens=250,
+            max_tokens=300,
         )
         bot_reply = response.choices[0].message.content
         # generate follow-up suggestions
