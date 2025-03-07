@@ -64,78 +64,86 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
     try:
         # ---- OUTFIT BUILDING MODE DETECTION WITH MORE PRECISE PATTERNS ----
         
+        # First, explicitly check for all outfit building patterns
+        # Including both statements and questions in outfit building mode
+        
         # Look for the exact occasion question from the protocol
         is_asking_occasion = any([
             "what's the occasion for this outfit" in bot_reply.lower(),
             "what occasion are you dressing for" in bot_reply.lower(),
             bot_reply.lower().endswith("what's the occasion?"),
-            # More specific patterns that match the exact protocol wording
         ])
         
-        if is_asking_occasion:
-            return ["Wedding", "Job interview", "Casual weekend"]
-            
-        # More structured pattern matching for outfit building follow-up questions
+        # Check for follow-up questions in outfit building
         is_outfit_followup = any([
             # Specific protocol follow-up questions with precise wording
-            "what's the vibe?" in bot_reply.lower(),
-            "what colour tones do you prefer?" in bot_reply.lower(),
-            "what silhouettes do you prefer?" in bot_reply.lower(),
-            "what's the weather going to be like?" in bot_reply.lower(),
-            "what's your budget like?" in bot_reply.lower()
+            "what's the vibe" in bot_reply.lower(),
+            "what colour tones" in bot_reply.lower(),
+            "what silhouettes" in bot_reply.lower(),
+            "what's the weather" in bot_reply.lower(),
+            "what's your budget" in bot_reply.lower()
         ])
         
-        # Check for structural patterns that definitively indicate outfit creation
-        is_outfit_structure = "## " in bot_reply and any([
-            # Check for the exact format from the protocol
-            "\n- TOP:" in bot_reply,
-            "\n- BOTTOM:" in bot_reply,
-            "\n- FOOTWEAR:" in bot_reply
-        ])
+        # Check for outfit structure
+        is_outfit_structure = any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"])
         
         # Check for shopping links section with exact protocol wording
         is_shopping_links = "here are available links to source the pieces:" in bot_reply.lower()
         
-        # Look for the exact swap question from protocol
-        is_swap_question = "what would you like to change?" in bot_reply.lower()
+        # Check for the swap question
+        is_swap_question = "what would you like to change" in bot_reply.lower()
         
-        # Final outfit building mode determination with stricter criteria
+        # Check if asking to save the outfit
+        is_save_question = "would you like to save this fit" in bot_reply.lower()
+        
+        # Determine if we're in outfit building mode
         is_outfit_building = any([
             is_asking_occasion,
             is_outfit_followup,
             is_outfit_structure,
             is_shopping_links,
-            is_swap_question
+            is_swap_question,
+            is_save_question
         ])
         
+        # ---- GENERATE SUGGESTIONS BASED ON DETECTED PATTERNS ----
+        
+        # Outfit building mode ALWAYS takes precedence, even if there are questions
         if is_outfit_building:
-            # Your existing outfit building mode logic remains the same
-            if any(q in bot_reply.lower() for q in ["vibe", "mood", "feel"]):
-                return ["Minimalist and clean", "Edgy and avant-garde", "Relaxed but polished"]
+            if is_asking_occasion:
+                return ["Wedding", "Job interview", "Casual weekend"]
                 
-            if any(q in bot_reply.lower() for q in ["colour", "color", "tone", "palette"]):
-                return ["Monochrome black and white", "Earth tones", "Muted pastels"]
-                
-            if any(q in bot_reply.lower() for q in ["silhouette", "shape", "fit"]):
-                return ["Oversized and drapey", "Slim and tailored", "Structured architectural"]
-                
-            if any(q in bot_reply.lower() for q in ["weather", "temperature", "climate"]):
-                return ["Cool and rainy", "Warm summer day", "Cold winter weather"]
-                
-            if any(q in bot_reply.lower() for q in ["budget", "price", "cost", "spend"]):
-                return ["Mid-range ($100-300 per piece)", "High-end designer", "Budget-friendly"]
-                
-            # after outfit generation (detect outfit formatting)
-            if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
+            if is_outfit_followup:
+                if "vibe" in bot_reply.lower():
+                    return ["Minimalist and clean", "Edgy and avant-garde", "Relaxed but polished"]
+                    
+                if any(q in bot_reply.lower() for q in ["colour", "color", "tone", "palette"]):
+                    return ["Monochrome black and white", "Earth tones", "Muted pastels"]
+                    
+                if any(q in bot_reply.lower() for q in ["silhouette", "shape", "fit"]):
+                    return ["Oversized and drapey", "Slim and tailored", "Structured architectural"]
+                    
+                if any(q in bot_reply.lower() for q in ["weather", "temperature", "climate"]):
+                    return ["Cool and rainy", "Warm summer day", "Cold winter weather"]
+                    
+                if any(q in bot_reply.lower() for q in ["budget", "price", "cost", "spend"]):
+                    return ["Mid-range ($100-300 per piece)", "High-end designer", "Budget-friendly"]
+            
+            # After outfit generation
+            if is_outfit_structure:
                 return ["Shopping links please", "I'd like to swap some items"]
                 
-            # after shopping links
-            if "here are available links" in bot_reply.lower():
+            # After shopping links
+            if is_shopping_links:
                 return ["Save this outfit for me", "I'd like to swap some items", "Add final touches"]
                 
-            # when asked what to change
-            if "what would you like to change" in bot_reply.lower():
+            # When asked what to change
+            if is_swap_question:
                 return ["Different shoes", "Something more affordable", "Different color palette"]
+                
+            # When asked to save the outfit
+            if is_save_question:
+                return ["Yes, save it", "No thanks", "Add final touches first"]
         
         # ---- QUESTION ANSWERING MODE ----
         # Check if the bot asked a question (outside outfit building mode)
@@ -144,7 +152,7 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
             yes_no_patterns = ["do you", "would you", "could you", "are you", "will you", "have you", 
                               "is it", "should i", "can you", "does this"]
             if any(pattern in bot_reply.lower() for pattern in yes_no_patterns):
-                return ["Yes.", "No.", "Maybe."]
+                return ["Yes.", "No."]
             
             # For other questions, generate specific answers to the question
             suggestion_response = client.chat.completions.create(
@@ -266,6 +274,25 @@ def ensure_suggestions(suggestions_list, max_count=3):
     """Return up to max_count suggestions, without padding if fewer are provided."""
     return suggestions_list[:max_count] if suggestions_list else []
 
+# Add this function to determine if suggestions are needed
+def should_show_suggestions(bot_reply: str) -> bool:
+    """Determine if we should show suggestions based on context."""
+    # Don't show suggestions for explanations without questions
+    if len(bot_reply) > 100 and "?" not in bot_reply:
+        return False
+        
+    # Other cases where we might want to skip suggestions
+    skip_patterns = [
+        "anything else you'd like to know",
+        "hope that helps",
+        "let me know if you need"
+    ]
+    
+    if any(pattern in bot_reply.lower() for pattern in skip_patterns):
+        return False
+        
+    return True
+
 #######################################
 # 2. FASTAPI ENDPOINTS
 #######################################
@@ -371,7 +398,7 @@ async def chat_api(request: ChatRequest):
         )
         bot_reply = response.choices[0].message.content
         # generate follow-up suggestions
-        suggestions = generate_suggestions(message, bot_reply)
+        suggestions = generate_suggestions(message, bot_reply) if should_show_suggestions(bot_reply) else []
 
         return {"text": bot_reply, "suggestedResponses": suggestions}
     except Exception as e:
