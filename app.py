@@ -62,90 +62,138 @@ def generate_suggestions(user_input: str, bot_reply: str) -> List[str]:
     Create context-aware follow-up suggestions based on the conversation state.
     """
     try:
-        # detect if we're in outfit building mode by checking for occasion question
-        # but only suggest occasions if the user hasn't already specified one
-        if "what's the occasion for this outfit" in bot_reply.lower():
-            # Check if user has already mentioned an occasion
-            occasion_keywords = ["wedding", "interview", "party", "date", "work", "casual", 
-                               "formal", "ceremony", "dinner", "meeting", "brunch"]
-            if any(keyword in user_input.lower() for keyword in occasion_keywords):
-                # If occasion was mentioned, suggest answers to likely follow-up questions
-                return ["Minimalist and clean", "Dark tones with pops of color", "Comfortable but stylish"]
-            else:
-                # No occasion mentioned, suggest occasion answers
-                return ["Wedding", "Job interview", "Casual weekend"]
+        # ---- OUTFIT BUILDING MODE SUGGESTIONS ---
+        if any(phrase in bot_reply.lower() for phrase in ["occasion", "event", "what are you dressing for"]):
+            return ["Wedding", "Job interview", "Casual weekend"]
+            
+        # Check if we're in outfit building mode
+        is_outfit_building = any([
+            "what's the occasion" in bot_reply.lower(),
+            "what occasion" in bot_reply.lower(),
+            any(q in bot_reply.lower() for q in ["what's the vibe", "vibe of the", "colour", "color", "tone", 
+                                               "silhouette", "weather", "budget"]),
+            any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]),
+            "here are available links" in bot_reply.lower(),
+            "what would you like to change" in bot_reply.lower()
+        ])
         
-        # For other outfit building questions, provide appropriate answers (not questions)
-        if any(q in bot_reply.lower() for q in ["what's the vibe", "colour tones", "silhouettes", "weather", "budget"]):
-            # Generate contextual answers to the specific question
+        if is_outfit_building:
+            if any(q in bot_reply.lower() for q in ["vibe", "mood", "feel"]):
+                return ["Minimalist and clean", "Edgy and avant-garde", "Relaxed but polished"]
+                
+            if any(q in bot_reply.lower() for q in ["colour", "color", "tone", "palette"]):
+                return ["Monochrome black and white", "Earth tones", "Muted pastels"]
+                
+            if any(q in bot_reply.lower() for q in ["silhouette", "shape", "fit"]):
+                return ["Oversized and drapey", "Slim and tailored", "Structured architectural"]
+                
+            if any(q in bot_reply.lower() for q in ["weather", "temperature", "climate"]):
+                return ["Cool and rainy", "Warm summer day", "Cold winter weather"]
+                
+            if any(q in bot_reply.lower() for q in ["budget", "price", "cost", "spend"]):
+                return ["Mid-range ($100-300 per piece)", "High-end designer", "Budget-friendly"]
+                
+            # after outfit generation (detect outfit formatting)
+            if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
+                return ["Shopping links please", "I'd like to swap some items"]
+                
+            # after shopping links
+            if "here are available links" in bot_reply.lower():
+                return ["Save this outfit for me", "I'd like to swap some items", "Add final touches"]
+                
+            # when asked what to change
+            if "what would you like to change" in bot_reply.lower():
+                return ["Different shoes", "Something more affordable", "Different color palette"]
+        
+        # ---- QUESTION ANSWERING MODE ----
+        # Check if the bot asked a question (outside outfit building mode)
+        elif "?" in bot_reply:
+            # Check if it's a yes/no question
+            yes_no_patterns = ["do you", "would you", "could you", "are you", "will you", "have you", 
+                              "is it", "should i", "can you", "does this"]
+            if any(pattern in bot_reply.lower() for pattern in yes_no_patterns):
+                return ["Yes.", "No.", "Maybe."]
+            
+            # For other questions, generate specific answers to the question
             suggestion_response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
                         "content": (
-                            "Generate 3 brief user answers (NOT questions) to respond to the assistant's question. "
-                            "These should be direct answers a user might give to the fashion question just asked. "
-                            "Format as a simple comma-separated list without numbering or quotes."
+                            "The assistant just asked the user this question. Generate 3 brief, direct answers "
+                            "(not questions) that a user might give to this specific question. Make answers very "
+                            "concise (3-6 words each). Format as a simple comma-separated list without numbering."
                         )
                     },
                     {"role": "assistant", "content": bot_reply},
                 ],
-                max_tokens=50
+                max_tokens=60
             )
             suggestions_text = suggestion_response.choices[0].message.content
             suggestions = [s.strip() for s in suggestions_text.split(",") if s.strip()]
-            return suggestions[:3]
             
-        # after outfit generation (detect outfit formatting)
-        if "## " in bot_reply and any(item in bot_reply for item in ["TOP:", "BOTTOM:", "FOOTWEAR:"]):
-            return ["Shopping links please", "I'd like to swap some items"]
+            # Add periods to statements if needed
+            final_suggestions = []
+            for suggestion in suggestions:
+                suggestion = suggestion.strip()
+                if suggestion and not suggestion.endswith((".", "!", "?")):
+                    suggestion += "."
+                final_suggestions.append(suggestion)
             
-        # after shopping links
-        if "here are available links" in bot_reply.lower():
-            return ["Save this outfit for me", "I'd like to swap some items", "Add final touches"]
-            
-        # when asked what to change
-        if "what would you like to change" in bot_reply.lower():
-            return ["Different shoes", "Something more affordable", "Different color palette"]
-
-        # default case - generate context-aware suggestions or empty list if just explaining a concept
-        suggestion_response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Analyze this fashion conversation. If the assistant is ONLY explaining a concept with no clear " 
-                        "follow-up needed, return 'NO_SUGGESTIONS'. Otherwise, generate 1-3 very brief follow-up " 
-                        "questions or related points (3-5 words each) relevant to the conversation. "
-                        "Format as a simple comma-separated list without numbering or quotes."
-                    )
-                },
-                {"role": "user", "content": user_input or "Fashion image analysis"},
-                {"role": "assistant", "content": bot_reply},
-            ],
-            max_tokens=50
-        )
-        suggestions_text = suggestion_response.choices[0].message.content
-        if "NO_SUGGESTIONS" in suggestions_text.upper():
-            return []
-            
-        suggestions = [s.strip() for s in suggestions_text.split(",") if s.strip()]
+            return final_suggestions[:3]
         
-        # Before returning suggestions, add periods to statements
-        final_suggestions = []
-        for suggestion in suggestions:
-            suggestion = suggestion.strip()
-            if suggestion and not suggestion.endswith((".", "!", "?")):
-                suggestion += "."
-            final_suggestions.append(suggestion)
-        
-        return final_suggestions
+        # ---- GENERAL FASHION CHAT MODE SUGGESTIONS ----
+        else:
+            # Check if the topic is fashion-related
+            fashion_keywords = ["fashion", "style", "clothing", "outfit", "wear", "dress", 
+                              "shoes", "accessory", "accessories", "trend", "designer", 
+                              "brand", "garment", "fabric", "textile", "look"]
+                              
+            is_fashion_related = any(keyword in (user_input + " " + bot_reply).lower() for keyword in fashion_keywords)
+            
+            if not is_fashion_related:
+                # Not fashion related - provide redirection suggestions
+                return [
+                    "Let's talk about fashion instead",
+                    "What's your style like?",
+                    "Need outfit recommendations?"
+                ]
+            
+            # Generate context-aware fashion suggestions
+            suggestion_response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a fashion assistant. Based on this conversation about fashion, generate 3 "
+                            "brief follow-up prompts or questions (5-8 words each) the user might request next. "
+                            "These should be directly related to the fashion topic just discussed and encourage "
+                            "exploration of related fashion concepts. Format as a simple comma-separated list."
+                        )
+                    },
+                    {"role": "user", "content": user_input or "Fashion advice"},
+                    {"role": "assistant", "content": bot_reply},
+                ],
+                max_tokens=60
+            )
+            suggestions_text = suggestion_response.choices[0].message.content
+            suggestions = [s.strip() for s in suggestions_text.split(",") if s.strip()]
+            
+            # Before returning suggestions, add periods to statements
+            final_suggestions = []
+            for suggestion in suggestions:
+                suggestion = suggestion.strip()
+                if suggestion and not suggestion.endswith((".", "!", "?")):
+                    suggestion += "."
+                final_suggestions.append(suggestion)
+            
+            return final_suggestions[:3]
         
     except Exception as e:
         print(f"Error generating suggestions: {e}")
-        return ["Try a different question.", "Style me again.", "Any new trends?"]
+        return ["Try a fashion question.", "Style me for an event.", "What's trending now?"]
 
 def generate_contextual_followups(chat_history: List[Dict[str, Any]]) -> List[str]:
     """
