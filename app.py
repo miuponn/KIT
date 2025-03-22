@@ -20,6 +20,7 @@ app = FastAPI(title="KIT Fashion Assistant API")
 # add CORS middleware
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://ppptailoringcourier.vercel.app"],
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
@@ -361,6 +362,13 @@ async def chat_api(request: ChatRequest):
             "For each recommendation, focus on avant-garde, minimalist, or conceptual fashion houses "
             "like Maison Margiela, Rick Owens, Comme des Garçons, Jil Sander, Lemaire, etc."
             "But otherwise if the budget specified is lower, look for affordable but fashion-community approved staples like Uniqlo, Nike, etc."
+            
+            "IMAGE ANALYSIS PROTOCOL:\n"
+            "When a user uploads an image:\n"
+            "1. If in outfit building mode, analyze the image and continue with the current stage\n"
+            "2. If not in outfit building mode, analyze the image and provide fashion insights\n"
+            "3. For clothing images, identify: style, brand (if recognizable), key details, and styling suggestions\n"
+            "4. For outfit images, comment on overall look, coordination, and potential improvements\n"
         )
 
     # Build the conversation
@@ -480,6 +488,69 @@ async def get_suggestions(message: str = "", bot_reply: str = ""):
     except Exception as e:
         print("Error in /api/suggestions:", e)
         return {"suggestions": []}
+
+@app.post("/api/analyze-image")
+async def analyze_image(data: dict):
+    """
+    Analyze a fashion image and return insights.
+    """
+    image_data = data.get("image", "")
+    context = data.get("context", "")  # Optional context about what user wants to know
+    
+    if not image_data or not image_data.startswith("data:image"):
+        return {"error": "Valid image data required"}
+        
+    try:
+        # Decode the image
+        image_bytes = base64.b64decode(image_data.split(",")[1])
+        pil_img = Image.open(BytesIO(image_bytes))
+        base64_img = encode_image(pil_img)
+        
+        # Create a message with the image
+        messages = [
+            {"role": "system", "content": "You are a fashion expert analyzing clothing images. Focus on style, cut, fabric, design elements, and potential brand identification. Keep your analysis concise."},
+            {"role": "user", "content": [
+                {"type": "text", "text": context or "Please analyze this fashion item."},
+                {"type": "image_url", "image_url": f"data:image/png;base64,{base64_img}"}
+            ]}
+        ]
+        
+        # Get analysis from OpenAI
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=250,
+        )
+        
+        analysis = response.choices[0].message.content
+        suggestions = generate_suggestions("", analysis) if should_show_suggestions(analysis) else []
+        
+        return {
+            "analysis": analysis,
+            "suggestedResponses": suggestions
+        }
+        
+    except Exception as e:
+        print(f"Error analyzing image: {e}")
+        return {"error": "Failed to analyze image", "details": str(e)}
+
+@app.get("/api/docs/image-upload")
+async def image_upload_docs():
+    """Documentation for image upload functionality"""
+    return {
+        "formats": ["image/jpeg", "image/png"],
+        "maxSize": "5MB",
+        "encoding": "base64",
+        "example": {
+            "endpoint": "/api/chat",
+            "method": "POST",
+            "payload": {
+                "message": "What do you think of this outfit?",
+                "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABA...",
+                "history": []
+            }
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn
